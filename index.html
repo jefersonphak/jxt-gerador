@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JXT Gerador</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hidden { display: none; }
+        .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #3498db; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex items-center justify-center">
+
+    <!-- TELA DE LOGIN -->
+    <div id="loginScreen" class="w-full max-w-md p-8 space-y-6 bg-gray-800 rounded-xl shadow-2xl">
+        <div class="text-center">
+            <h1 class="text-4xl font-extrabold text-blue-500">JXT Gerador</h1>
+            <p class="mt-2 text-gray-400">Faça login para acessar o painel</p>
+        </div>
+        <form id="loginForm" class="space-y-6">
+            <div>
+                <label for="username" class="block text-sm font-medium text-gray-300">Login</label>
+                <input id="username" name="username" type="text" required class="mt-1 block w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-gray-100">
+            </div>
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-300">Senha</label>
+                <input id="password" name="password" type="password" required class="mt-1 block w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-gray-100">
+            </div>
+            <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Entrar
+            </button>
+            <p id="loginError" class="text-red-500 text-sm text-center hidden">Credenciais inválidas!</p>
+        </form>
+    </div>
+
+    <!-- PAINEL PRINCIPAL -->
+    <div id="dashboardScreen" class="hidden w-full max-w-6xl mx-auto p-4 md:p-8">
+        <header class="mb-8 flex justify-between items-center">
+            <h1 class="text-4xl font-extrabold text-blue-500">Painel JXT Gerador</h1>
+            <button id="logoutBtn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition">Sair</button>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <section class="lg:col-span-1 bg-gray-800 p-6 rounded-xl shadow-xl">
+                <h2 class="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Criar Nova Key</h2>
+                <form id="createKeyForm" class="space-y-4">
+                    <div>
+                        <label for="keyName" class="block text-sm font-medium text-gray-300">Nome da Key</label>
+                        <input id="keyName" type="text" required placeholder="ex: abc" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-100">
+                    </div>
+                    <div>
+                        <label for="keyOwner" class="block text-sm font-medium text-gray-300">Dono (Opcional)</label>
+                        <input id="keyOwner" type="text" placeholder="Nome do cliente" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-100">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300">Duração</label>
+                        <div class="grid grid-cols-2 gap-2 mt-1">
+                            <button type="button" class="duration-btn px-3 py-2 bg-gray-700 border border-gray-600 rounded-md hover:bg-blue-600 hover:border-blue-600 transition" data-days="1">1 Dia</button>
+                            <button type="button" class="duration-btn px-3 py-2 bg-gray-700 border border-gray-600 rounded-md hover:bg-blue-600 hover:border-blue-600 transition" data-days="7">7 Dias</button>
+                            <button type="button" class="duration-btn px-3 py-2 bg-gray-700 border border-gray-600 rounded-md hover:bg-blue-600 hover:border-blue-600 transition" data-days="15">15 Dias</button>
+                            <button type="button" class="duration-btn px-3 py-2 bg-gray-700 border border-gray-600 rounded-md hover:bg-blue-600 hover:border-blue-600 transition" data-days="30">30 Dias</button>
+                        </div>
+                    </div>
+                    <input type="hidden" id="keyDuration" name="keyDuration" required>
+                    <button type="submit" class="w-full py-2 px-4 bg-green-600 text-white font-bold rounded-md hover:bg-green-700 transition">
+                        Gerar Key
+                    </button>
+                </form>
+            </section>
+
+            <section class="lg:col-span-2 bg-gray-800 p-6 rounded-xl shadow-xl">
+                <h2 class="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Keys Gerenciadas</h2>
+                <div id="keysList" class="space-y-4 overflow-x-auto">
+                    <p class="text-gray-500 text-center py-8">Carregando keys...</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+<script>
+    const API_URL = '/api/keys';
+    const ADMIN_LOGIN = 'jxt';
+    const ADMIN_PASSWORD = 'RAGE';
+
+    const loginScreen = document.getElementById('loginScreen');
+    const dashboardScreen = document.getElementById('dashboardScreen');
+    const loginForm = document.getElementById('loginForm');
+    const loginError = document.getElementById('loginError');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const createKeyForm = document.getElementById('createKeyForm');
+    const keysList = document.getElementById('keysList');
+    const durationButtons = document.querySelectorAll('.duration-btn');
+
+    let selectedDuration = null;
+
+    loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        if (username === ADMIN_LOGIN && password === ADMIN_PASSWORD) {
+            loginScreen.classList.add('hidden');
+            dashboardScreen.classList.remove('hidden');
+            fetchKeys();
+        } else {
+            loginError.classList.remove('hidden');
+        }
+    });
+
+    logoutBtn.addEventListener('click', () => {
+        dashboardScreen.classList.add('hidden');
+        loginScreen.classList.remove('hidden');
+        loginForm.reset();
+        loginError.classList.add('hidden');
+    });
+
+    durationButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            durationButtons.forEach(b => b.classList.remove('bg-blue-600', 'border-blue-600'));
+            btn.classList.add('bg-blue-600', 'border-blue-600');
+            selectedDuration = btn.dataset.days;
+            document.getElementById('keyDuration').value = selectedDuration;
+        });
+    });
+
+    createKeyForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!selectedDuration) {
+            alert('Por favor, selecione uma duração para a key.');
+            return;
+        }
+        const name = document.getElementById('keyName').value;
+        const owner = document.getElementById('keyOwner').value;
+        const keyData = { name, duration: parseInt(selectedDuration), owner };
+        try {
+            const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(keyData) });
+            if (!response.ok) throw new Error('Falha ao criar key');
+            createKeyForm.reset();
+            durationButtons.forEach(b => b.classList.remove('bg-blue-600', 'border-blue-600'));
+            selectedDuration = null;
+            fetchKeys();
+        } catch (error) { alert(error.message); }
+    });
+
+    async function handleAction(keyId, action) {
+        if (!confirm(`Tem certeza que deseja ${action} esta key?`)) return;
+        try {
+            const response = await fetch(`${API_URL}/${keyId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) });
+            if (!response.ok) throw new Error(`Falha ao ${action} key`);
+            fetchKeys();
+        } catch (error) { alert(error.message); }
+    }
+
+    async function deleteKey(keyId) {
+        if (!confirm('Tem certeza que deseja APAGAR esta key permanentemente?')) return;
+        try {
+            const response = await fetch(`${API_URL}/${keyId}`, { method: 'DELETE' });
+            if (!response.ok) throw new Error('Falha ao apagar key');
+            fetchKeys();
+        } catch (error) { alert(error.message); }
+    }
+
+    async function fetchKeys() {
+        keysList.innerHTML = '<p class="text-gray-500 text-center py-8"><div class="spinner inline-block"></div> Carregando...</p>';
+        try {
+            const response = await fetch(API_URL);
+            if (!response.ok) throw new Error('Falha ao buscar keys');
+            const keys = await response.json();
+            if (keys.length === 0) { keysList.innerHTML = '<p class="text-gray-500 text-center py-8">Nenhuma key encontrada.</p>'; return; }
+            keysList.innerHTML = keys.map(key => {
+                const statusClass = key.status === 'active' ? 'bg-green-600' : key.status === 'frozen' ? 'bg-yellow-600' : 'bg-red-600';
+                const statusText = key.status === 'active' ? 'Ativa' : key.status === 'frozen' ? 'Congelada' : 'Expirada';
+                const expiryDate = new Date(key.expiresAt).toLocaleString('pt-BR');
+                const freezeUnfreezeBtn = key.status === 'active' ? `<button onclick="handleAction('${key.id}', 'freeze')" class="px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-sm">Congelar</button>` : `<button onclick="handleAction('${key.id}', 'unfreeze')" class="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm">Ativar</button>`;
+                return `
+                    <div class="bg-gray-700 p-4 rounded-lg shadow-md">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div class="flex-grow">
+                                <p class="font-mono text-lg"><strong>Key:</strong> ${key.id}</p>
+                                <p><strong>Nome:</strong> ${key.name}</p>
+                                <p><strong>Dono:</strong> ${key.owner || 'N/A'}</p>
+                                <p><strong>Expira em:</strong> ${expiryDate}</p>
+                                <span class="inline-block mt-2 px-3 py-1 text-xs font-semibold leading-tight text-white ${statusClass} rounded-full">${statusText}</span>
+                            </div>
+                            <div class="flex flex-wrap gap-2">${freezeUnfreezeBtn}<button onclick="handleAction('${key.id}', 'reset')" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">Resetar</button><button onclick="deleteKey('${key.id}')" class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm">Apagar</button></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } catch (error) { keysList.innerHTML = `<p class="text-red-500 text-center py-8">Erro ao carregar keys: ${error.message}</p>`; }
+    }
+</script>
+</body>
+</html>
